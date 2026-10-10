@@ -7,7 +7,7 @@ Claude Code の個人スキル置き場。複数PCで共有するためのリポ
 | スキル | 用途 |
 |---|---|
 | `slide-deck` | 記事・原稿を動画用スライドにする（構成→ChatGPT画像生成→Canva→読み上げ台本） |
-| `slide-video` | スライド/LP をナレーション付き MP4 にする（HTML→puppeteer で連番フレーム→ffmpeg 合成、Gemini TTS カスタムボイス「たいせい」） |
+| `slide-video` | 記事を ChatGPT 生成スライド画像＋たいせいナレーションの MP4 にして UTAGE へ（HTML 自作は禁止） |
 
 ## 別PCでのセットアップ
 
