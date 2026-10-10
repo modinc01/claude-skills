@@ -22,11 +22,25 @@ description: スライドや LP のセクションを「ナレーション付き
 シーンごとに「画面に出すもの」「ナレーション」「秒数の目安」を md に書く（`docs/promo/<name>-video.md`）。
 ナレーションは聞き取りやすい短文。改行＝息継ぎ。全体で 60〜90 秒。
 
-### 2. ナレーション音声（Gemini TTS）
+### 2. ナレーション音声（API 連携・本人の声）
 
-Google AI Studio（ユーザーの Chrome、stox.japan@gmail.com）の Gemini TTS に台本を投げて wav を保存 → `docs/promo/narration.wav`。
-`ffprobe -i narration.wav -show_entries format=duration -v quiet -of csv=p=0` で長さを取り、**この長さに動画全体を合わせる**（`window.totalSeconds`）。
-台本の段落ごとの開始秒は、音声を聞いて `timings` 表に記録する（references/slides-template.html のコメント参照）。「キーキー音」が出る場合は別の声・別の速度で再生成する。
+**ブラウザの AI Studio は使わない。** `references/tts.sh` で API から生成する（声は本人クローン「たいせい」）。設定は `~/.config/tts/.env`（ユーザーが貼る。Claude は読まない）:
+
+```
+TTS_PROVIDER=elevenlabs            # elevenlabs | gemini
+ELEVENLABS_API_KEY=…
+ELEVENLABS_VOICE_ID=…              # 「たいせい」の voice_id
+```
+
+```sh
+bash ~/.claude/skills/slide-video/references/tts.sh narration.txt narr
+# → narr/s01.wav … narr/narration.wav（段落間 0.6 秒）と narr/timings.json（各段落の開始秒 = window.timings にそのまま使う）
+```
+
+narration.txt は台本の「ナレーション」列を **空行区切りの段落** にしたもの（1 段落 = 1 シーン）。timings.json の `timings` と `total` を slides.html の `window.timings` / `window.totalSeconds` に入れれば、音声とスライドが自動で同期する。
+
+（旧手順: AI Studio の画面で Gemini TTS。声が既定の Fola になり本人の声と別物になるので使わない）
+
 
 ### 3. スライド HTML（references/slides-template.html をコピー）
 
