@@ -1,6 +1,6 @@
 ---
 name: slide-video
-description: スライドや LP のセクションを「ナレーション付きの MP4 動画」にする。HTML で 1920×1080 のスライドを組み、puppeteer-core で連番フレームを書き出し、ffmpeg でナレーション(Gemini TTS)と合成する。「スライドを動画にして」「紹介動画を作って」「LP を動画化して」と言われたら使う。Canva で読み上げ用スライドを作るだけなら slide-deck を使う。
+description: スライドや LP のセクションを「ナレーション付きの MP4 動画」にする。HTML で 1920×1080 のスライドを組み、puppeteer-core で連番フレームを書き出し、ffmpeg でナレーション(Gemini TTS カスタムボイス「たいせい」)と合成する。「スライドを動画にして」「紹介動画を作って」「LP を動画化して」と言われたら使う。Canva で読み上げ用スライドを作るだけなら slide-deck を使う。
 ---
 
 # スライド動画化（HTML → MP4）
@@ -22,25 +22,18 @@ description: スライドや LP のセクションを「ナレーション付き
 シーンごとに「画面に出すもの」「ナレーション」「秒数の目安」を md に書く（`docs/promo/<name>-video.md`）。
 ナレーションは聞き取りやすい短文。改行＝息継ぎ。全体で 60〜90 秒。
 
-### 2. ナレーション音声（API 連携・本人の声）
+### 2. ナレーション音声（本人の声「たいせい」= Gemini TTS のカスタムボイス）
 
-**ブラウザの AI Studio は使わない。** `references/tts.sh` で API から生成する（声は本人クローン「たいせい」）。設定は `~/.config/tts/.env`（ユーザーが貼る。Claude は読まない）:
+声は Google AI Studio の **カスタムボイス「たいせい 講師ナレーション」**（stox.japan@gmail.com、プロジェクト「Default Gemini Project」gen-lang-client-0188430746 に登録。本人の録音から作成）。既定の Fola 等は使わない。
 
-```
-TTS_PROVIDER=elevenlabs            # elevenlabs | gemini
-ELEVENLABS_API_KEY=…
-ELEVENLABS_VOICE_ID=…              # 「たいせい」の voice_id
-```
+**AI Studio（ブラウザ）で生成する手順（2026-10-10 実績）**
+1. https://aistudio.google.com/generate-speech を開く。右上の鍵アイコン（No API key selected）→「有料の API キーをリンク」→ プロジェクトを **Default Gemini Project** に変更 → 次へ → キーを選択。リンクしないとカスタムボイスが一覧に出ない
+2. 「Create new dialog」→ Speaker ドロップダウン → Custom voices の「たいせい 講師ナレーション」を選ぶ
+3. 1 段落ずつ生成（1 回 70〜180 文字、生成 15〜25 秒）。textarea は native setter + input イベントで差し替え、Run は **実クリック**（JS click は効かない）
+4. 生成音声は `<audio src="data:audio/wav;base64,…">`（24kHz mono）。取り出しは **クリックイベント内で navigator.clipboard.writeText(base64)**（`document.addEventListener('click',…,{once:true})` を仕込んでから空白を実クリック）→ ローカルで `pbpaste | base64 -D > narr/sNN.wav`。~/Downloads は TCC で読めないのでダウンロードボタンは使わない
+5. 段落間 0.6 秒 + 末尾 1 秒の無音で concat → `narr/narration.wav`、各段落の開始秒を `window.timings`、合計を `window.totalSeconds` に入れる（references/tts.sh の後半と同じ計算）
 
-```sh
-bash ~/.claude/skills/slide-video/references/tts.sh narration.txt narr
-# → narr/s01.wav … narr/narration.wav（段落間 0.6 秒）と narr/timings.json（各段落の開始秒 = window.timings にそのまま使う）
-```
-
-narration.txt は台本の「ナレーション」列を **空行区切りの段落** にしたもの（1 段落 = 1 シーン）。timings.json の `timings` と `total` を slides.html の `window.timings` / `window.totalSeconds` に入れれば、音声とスライドが自動で同期する。
-
-（旧手順: AI Studio の画面で Gemini TTS。声が既定の Fola になり本人の声と別物になるので使わない）
-
+**API で生成する場合**（キーがローカルにあるとき）: `references/tts.sh`（`~/.config/tts/.env` に `TTS_PROVIDER=gemini` と `GEMINI_API_KEY`）。カスタムボイスを API から指定する方法は未確認。
 
 ### 3. スライド HTML（references/slides-template.html をコピー）
 
