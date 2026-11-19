@@ -54,3 +54,30 @@ location.href = 'http://127.0.0.1:PORT/collect';
 ChatGPT側の画像生成は落ちることがある（実際に35分以上ダウンした日がある）。
 「Something went wrong while generating your image.」が出たら、リロード → 画像URLへ直接遷移で読める場合がある。
 復旧しないときは自前生成（HTML → headless Chrome → PNG）に切り替える判断をユーザーに聞く。
+
+## 2026-11-19 追記: window.name リレーが効かなくなった場合の方式（現行）
+
+chatgpt.com が COOP を返すようになり、cross-origin 遷移で `window.name` が消える（画像URLも chatgpt.com 配下の `/backend-api/estuary/content` になった）。
+`<img>` は blob: で canvas が汚染され `toDataURL` 不可。代わりに **チャットページ上で同一オリジン fetch → JPEG dataURL → URL フラグメントで運ぶ**。
+
+```js
+// チャットページ(https://chatgpt.com/c/<id>)で実行。k = 何枚目か(0始まり)
+(async()=>{
+  const id=location.pathname.split('/c/')[1];
+  const tok=(await (await fetch('/api/auth/session')).json()).accessToken;
+  const h={'Authorization':'Bearer '+tok};
+  const conv=await (await fetch('/backend-api/conversation/'+id,{headers:h})).json();
+  const ptrs=[]; Object.values(conv.mapping).forEach(n=>{const m=n.message; if(!m||!m.content||!m.content.parts) return;
+    m.content.parts.forEach(p=>{ if(p&&p.asset_pointer) ptrs.push({ptr:p.asset_pointer, ct:m.create_time}); });});
+  ptrs.sort((a,b)=>a.ct-b.ct);
+  const seen={}, fids=[]; ptrs.forEach(p=>{const f=p.ptr.replace('file-service://','').replace('sediment://',''); if(!seen[f]){seen[f]=1; fids.push(f);}});
+  const r=await (await fetch('/backend-api/files/'+fids[k]+'/download',{headers:h})).json();
+  const b=await (await fetch(r.download_url,{credentials:'include'})).blob();
+  const bm=await createImageBitmap(b); const cv=document.createElement('canvas'); cv.width=bm.width; cv.height=bm.height;
+  cv.getContext('2d').drawImage(bm,0,0);
+  location.href='http://127.0.0.1:8777/collect?n=01#'+cv.toDataURL('image/jpeg',0.92);   // 2MB未満ならURLに載る
+})();
+```
+
+受け口は `location.hash` も読む版（`~/projects/luxroute-salon/slides/collect_server2.py`）。保存後は `navigate` でチャットURLに戻る。
+`asset_pointer` は同じ画像が2回出る（生成中と完了）ので fid で重複除去する。ページ内 `<img>` の枚数は仮想化で当てにならないので、この API 経由の枚数で数える。
